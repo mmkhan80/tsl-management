@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model attendance {
+  id             Int               @id @default(autoincrement())
+  studentId      Int
+  classSectionId Int
+  adate          DateTime          @db.DateTime(0)
+  status         attendance_status
+  updatedBy      String?           @db.VarChar(100)
+  updatedDate    DateTime?         @db.DateTime(0)
+  student        student           @relation(fields: [studentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_ibfk_1")
+  classsection   classsection      @relation(fields: [classSectionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "attendance_ibfk_2")
+
+  @@unique([studentId, adate], map: "uq_student_adate")
+  @@index([classSectionId], map: "classSectionId")
+}
+
+/// This model has been renamed to 'Renamedclass' during introspection, because the original name 'class' is reserved.
+model Renamedclass {
+  id           Int            @id @default(autoincrement())
+  name         String         @db.VarChar(255)
+  createdAt    DateTime       @default(now())
+  classsection classsection[]
+
+  @@map("class")
+}
+
+model classsection {
+  id                                          Int               @id @default(autoincrement())
+  classId                                     Int
+  sectionId                                   Int
+  teacherId                                   Int?
+  subjectHeadId                               Int?
+  attendance                                  attendance[]
+  metricscorecards                            metricscorecard[]
+  Renamedclass                                Renamedclass      @relation(fields: [classId], references: [id], map: "fk_classsection_class")
+  section                                     section           @relation(fields: [sectionId], references: [id], map: "fk_classsection_section")
+  teacher_classsection_subjectHeadIdToteacher teacher?          @relation("classsection_subjectHeadIdToteacher", fields: [subjectHeadId], references: [id], map: "fk_classsection_subjectHead")
+  teacher_classsection_teacherIdToteacher     teacher?          @relation("classsection_teacherIdToteacher", fields: [teacherId], references: [id], map: "fk_classsection_teacher")
+  student                                     student[]
+
+  @@unique([classId, sectionId], map: "ClassSection_classId_sectionId_key")
+  @@index([classId], map: "fk_classsection_class")
+  @@index([sectionId], map: "fk_classsection_section")
+  @@index([subjectHeadId], map: "fk_classsection_subjectHead")
+  @@index([teacherId], map: "fk_classsection_teacher")
+}
+
+model section {
+  id           Int            @id @default(autoincrement())
+  name         String         @db.VarChar(255)
+  classsection classsection[]
+}
+
+model student {
+  id               Int               @id @default(autoincrement())
+  firstName        String            @db.VarChar(100)
+  lastName         String            @db.VarChar(100)
+  gender           String            @db.VarChar(100)
+  dateOfBirth      DateTime          @db.Date
+  rollNumber       String?           @unique(map: "Student_rollNumber_key") @db.VarChar(50)
+  classSectionId   Int
+  admissionDate    DateTime          @db.Date
+  previousSchool   String?           @db.VarChar(255)
+  fatherNic        String?           @db.VarChar(50)
+  email            String?           @db.VarChar(150)
+  phone            String?           @db.VarChar(20)
+  address          String?           @db.Text
+  religion         String?           @db.VarChar(150)
+  guardianName     String?           @db.VarChar(150)
+  guardianContact  String?           @db.VarChar(20)
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @default(now())
+  attendance       attendance[]
+  metricScorecards metricscorecard[]
+  classsection     classsection      @relation(fields: [classSectionId], references: [id], map: "fk_student_classSection")
+
+  @@index([classSectionId], map: "fk_student_classSection")
+}
+
+model teacher {
+  id                                               Int            @id @default(autoincrement())
+  name                                             String
+  email                                            String         @unique(map: "Teacher_email_key")
+  phone                                            String?
+  nic                                              String?
+  subjectSpecialty                                 String?
+  hireDate                                         DateTime?
+  classsection_classsection_subjectHeadIdToteacher classsection[] @relation("classsection_subjectHeadIdToteacher")
+  classsection_classsection_teacherIdToteacher     classsection[] @relation("classsection_teacherIdToteacher")
+}
+
+enum attendance_status {
+  P
+  A
+  L
+  V
+}
+
+model metricgroup {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(150)
+  updatedBy   String?   @db.VarChar(100)
+  updatedDate DateTime? @default(now())
+
+  metrics metric[] // one-to-many relation
+}
+
+model metric {
+  id          Int       @id @default(autoincrement())
+  name        String?   @db.VarChar(250)
+  description String?   @db.Text
+  groupId     Int?
+  updatedBy   String?   @db.VarChar(100)
+  updatedDate DateTime? @default(now())
+
+  group      metricgroup?      @relation(fields: [groupId], references: [id])
+  scorecards metricscorecard[] // one-to-many relation
+}
+
+model metricscorecard {
+  id             Int       @id @default(autoincrement())
+  studentId      Int
+  classSectionId Int
+  adate          DateTime
+  metricId       Int
+  score          Int
+  updatedBy      String?   @db.VarChar(150)
+  updatedDate    DateTime? @default(now())
+
+  // Relations
+  student      student      @relation(fields: [studentId], references: [id])
+  classsection classsection @relation(fields: [classSectionId], references: [id])
+  metric       metric       @relation(fields: [metricId], references: [id])
+
+  @@index([studentId])
+  @@index([classSectionId])
+  @@index([metricId])
+}
+
+model user {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  email     String   @unique @db.VarChar(150)
+  password  String   @db.VarChar(255)
+  rights    Json // required
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
